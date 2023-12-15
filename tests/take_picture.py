@@ -30,7 +30,7 @@ def camera_loop():
         if i % 500 == 0:
             print("Cam Coords: ", camera.get_world_pose()[0])
             imgplot = plt.imshow(camera.get_rgba()[:, :, :3])
-            plt.savefig("/home/kevin/Desktop/omniverse/jetbot_cam.png")
+            plt.savefig("/home/kevin/Desktop/flockingeaglesnasaminds/jetbot_cam.png")
             plt.show()
             print("snap")
 
