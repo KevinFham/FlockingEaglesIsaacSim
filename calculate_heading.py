@@ -32,5 +32,7 @@ def compute(db: og.Database):
     #         heading_angle += np.pi
 
     db.outputs.debug = normalize_angle( np.fmod( heading_angle - db.inputs.bot_orientation + np.pi, np.pi * 2) )
+    
+    del position_diff, heading_angle
 
     return True

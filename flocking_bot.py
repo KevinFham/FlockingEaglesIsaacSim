@@ -79,4 +79,6 @@ def compute(db: og.Database):
     db.outputs.linear_velocity = -1.
     db.outputs.angular_velocity = -1.
 
+    del flockingbot
+
     return True
