@@ -21,5 +21,7 @@ Run the Isaac Sim local python interpreter (optionally with a predone `<script>`
 
 Connect to a running simulation's python console with `telnet localhost 8223`
 
+`telnet localhost <port>`
+
 Shell scripts for conda and python are typically located at `~/.local/share/ov/pkg/isaac_sim-2023.1.1` ([How to set up](https://docs.omniverse.nvidia.com/isaacsim/latest/isaac_gym_tutorials/tutorial_gym_isaac_gym.html))
 
