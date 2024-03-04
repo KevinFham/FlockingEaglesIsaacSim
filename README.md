@@ -30,11 +30,9 @@ Shell scripts for conda and python are typically located at `~/.local/share/ov/p
 
 "Detected a blocking function. This will cause hitches or hangs in the UI. Please switch to the async version" ([Source](https://forums.developer.nvidia.com/t/detected-a-blocking-function-this-will-cause-hitches-or-hangs-in-the-ui-please-switch-to-the-async-version/271191/12))
 
-> Edit `~/.local/share/ov/pkg/isaac_sim-2023.1.1/exts/omni.isaac.core/omni/isaac/core/utils/nucleus.py`
+> Edit `~/.local/share/ov/pkg/isaac_sim-2023.1.1/exts/omni.isaac.core/omni/isaac/core/utils/nucleus.py` and change lines 178 to 198 with the function below
 
-> Change lines 178 to 198 with the function below
-
-```
+```py
 def check_server(server: str, path: str, timeout: float = 10.0) -> bool:
     """Check a specific server for a path
 
