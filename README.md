@@ -15,7 +15,7 @@ https://docs.omniverse.nvidia.com/py/isaacsim/index.html
 
 Run the Isaac Sim local python interpreter (optionally with a predone `<script>`)
 
-> `~/.local/share/ov/pkg/isaac_sim-2023.1.0-hotfix.1/python.sh <script>`
+> `~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh <script>`
 
 ## Tips
 
