@@ -1,3 +1,5 @@
+import numpy as np
+
 def quaternion_to_euler_x(x, y, z, w):
     eul_x = np.arctan2(
         2.0 * (w * x + y * z), 
