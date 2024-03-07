@@ -1,7 +1,7 @@
 '''
- flocking_bot.py
+ flocking_bot_info.py
 
- - NASA Minds Flocking Eagles Swarm Bot Framework
+ - Flocking bot info poster
 
 '''
 import numpy as np

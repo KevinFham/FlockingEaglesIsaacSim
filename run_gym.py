@@ -78,7 +78,11 @@ with dr.trigger.on_rl_frame(num_envs=num_envs):
 # TODO: Control flocking bot by script
 """ Flocking Bot Script Control
 """
+# set the FlockingBot_ScriptControl Main Controller node to a path
+# somehow get IR, orientation, and position data out? use that data and create a map, outside of the controller
+# output random linear and angular velocities
 
+# end goal is to create a shit load of maps
 
 
 """ Run Simulation
