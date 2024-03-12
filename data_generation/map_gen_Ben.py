@@ -5,12 +5,12 @@ from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import heapq
-import csv
+import json
 
 
 class args:
     SEED = 69
-    DATA_GEN_SIZE = 100
+    DATA_GEN_SIZE = 10
     DATA_DIR = 'Ben_data/'
     DEBUG_PYPLOT = False
 
@@ -129,13 +129,7 @@ def shortest_path(array, start_point, end_point):
 
     return shortest_path
 
-import csv
 
-def save_path_to_csv(map_name, path, bit_map):
-    with open('dataset.csv', 'a', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['Name', 'label', 'Bit Map'])
-        writer.writerow([map_name, path, bit_map.tolist()])
 
 
 # def DFS(grid, start, goal):
@@ -166,11 +160,13 @@ def save_path_to_csv(map_name, path, bit_map):
 """ Main
 """
 if __name__ == "__main__":
+    name = []
     for gen in range(args.DATA_GEN_SIZE):
         bit_map = BitMap(
             (math.ceil(args.TERRAIN_SIZE) * args.GRAIN, math.ceil(args.TERRAIN_SIZE) * args.GRAIN),
             obstacle_size_range=args.OBSTACLE_SIZE_RANGE
         )
+
 
         # Establish and highlight valid routes
         bit_map_gauss = gaussian_filter(bit_map.astype('float32'), sigma=args.GAUSS_SIGMA)
@@ -217,10 +213,6 @@ if __name__ == "__main__":
 
         path = shortest_path(bit_map, spawn_A, spawn_B)
 
-        map_name = f'map{gen}'
-        save_path_to_csv(map_name, path, bit_map)
-
-
         if args.DEBUG_PYPLOT:
             fig, axis = plt.subplots(2, 2)
             axis[0, 0].imshow(bit_map)
@@ -237,5 +229,8 @@ if __name__ == "__main__":
             axis[1, 1].set_title("Accessibility w/ CC Labeling", fontsize=10, fontweight='bold')
             plt.show()
         else:
-            mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
+            pass
+            # mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
             # plot_grid(bit_map, path)
+    np.savez(args.DATA_DIR + f'map{gen}.npz', bit_map=bit_map, path=path)
+
