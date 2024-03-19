@@ -40,6 +40,7 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
     :return:
     """
     bit_map = np.zeros(shape=shape, dtype=np.uint8)
+    spawns = []
 
     # Spawn obstacles
     for i in range(args.TERRAIN_POPULATION):
@@ -48,8 +49,9 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
         size = round(np.random.uniform(obstacle_size_range[0], obstacle_size_range[1]))
 
         spawn_square(bit_map, (x, y), size, args.OBSTACLE_VALUE)
+        spawns.append([(x, y), size])
 
-    return bit_map
+    return bit_map, spawns
 
 # def DFS(grid, start, goal):
 #     visited = [[False for _ in range(bit_map_accessible.shape[0])] for _ in range(bit_map_accessible.shape[1])]
@@ -80,7 +82,7 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
 """
 if __name__ == "__main__":
     for gen in range(args.DATA_GEN_SIZE):
-        bit_map = BitMap(
+        bit_map, spawns = BitMap(
             (math.ceil(args.TERRAIN_SIZE) * args.GRAIN, math.ceil(args.TERRAIN_SIZE) * args.GRAIN),
             obstacle_size_range=args.OBSTACLE_SIZE_RANGE
         )
@@ -127,6 +129,11 @@ if __name__ == "__main__":
 
         spawn_square(bit_map, spawn_A, 1, args.BASE_VALUE)
         spawn_square(bit_map, spawn_B, 1, args.BASE_VALUE)
+        
+        spawns.append([spawn_A, 1])
+        spawns.append([spawn_B, 1])
+
+
 
         if args.DEBUG_PYPLOT:
             fig, axis = plt.subplots(2, 2)
@@ -145,3 +152,4 @@ if __name__ == "__main__":
             plt.show()
         else:
             mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
+            np.save(args.DATA_DIR + f'spawns{gen}', np.array(spawns, dtype=object))
