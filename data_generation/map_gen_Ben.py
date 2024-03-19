@@ -10,14 +10,16 @@ import json
 
 class args:
     SEED = 69
-    DATA_GEN_SIZE = 20
-    #DATA_DIR = 'Ben_data/'
-    DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
+    num_maps = 1
+    anwser = 'Ben_data/key'
+    pieces = 'Ben_data/pieces'
     DEBUG_PYPLOT = False
+    num_smap = 1
+    samp_size = 100
 
-    TERRAIN_SIZE = 10.0
-    OBSTACLE_SIZE_RANGE = (1, 3)
-    TERRAIN_POPULATION = 200
+    TERRAIN_SIZE = 100.0
+    OBSTACLE_SIZE_RANGE = (1, 10)
+    TERRAIN_POPULATION = 2100
     GRAIN = 10
     GAUSS_SIGMA = 1.2
     RELATIVE_BASE_DISTANCE = 8.0
@@ -44,7 +46,6 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
     :return:
     """
     bit_map = np.zeros(shape=shape, dtype=np.uint8)
-    spawns = []
 
     # Spawn obstacles
     for i in range(args.TERRAIN_POPULATION):
@@ -53,9 +54,8 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
         size = round(np.random.uniform(obstacle_size_range[0], obstacle_size_range[1]))
 
         spawn_square(bit_map, (x, y), size, args.OBSTACLE_VALUE)
-        spawns.append([(x, y), size])
 
-    return bit_map, spawns
+    return bit_map
 
 
 def dijkstra(array, start):
@@ -102,12 +102,13 @@ def numpy_array_to_graph(array):
 
     return graph
 
-def plot_grid(array, path):
+def plot_grid(array, path=None):
     plt.imshow(array, cmap='binary')
     plt.colorbar()
 
     # Plot path
-    plt.plot([point[1] for point in path], [point[0] for point in path], color='red')
+    if path is not None:
+        plt.plot([point[1] for point in path], [point[0] for point in path], color='red')
 
     plt.show()
 
@@ -132,7 +133,13 @@ def shortest_path(array, start_point, end_point):
 
     return shortest_path
 
-
+def get_sample(full_arr, smapsize):    # Generate random indices to extract a 20x20 subarray
+    start_row = np.random.randint(0, 1000 - smapsize)  # To ensure the subarray fits within the array
+    start_col = np.random.randint(0, 1000 - smapsize)
+    end_row = start_row + smapsize
+    end_col = start_col + smapsize
+    subarray = full_arr[start_row:end_row, start_col:end_col]
+    return subarray
 
 
 # def DFS(grid, start, goal):
@@ -164,8 +171,8 @@ def shortest_path(array, start_point, end_point):
 """
 if __name__ == "__main__":
     name = []
-    for gen in range(args.DATA_GEN_SIZE):
-        bit_map, spawns = BitMap(
+    for gen in range(args.num_maps):
+        bit_map = BitMap(
             (math.ceil(args.TERRAIN_SIZE) * args.GRAIN, math.ceil(args.TERRAIN_SIZE) * args.GRAIN),
             obstacle_size_range=args.OBSTACLE_SIZE_RANGE
         )
@@ -213,13 +220,12 @@ if __name__ == "__main__":
 
         spawn_square(bit_map, spawn_A, 1, args.BASE_VALUE)
         spawn_square(bit_map, spawn_B, 1, args.BASE_VALUE)
-        
-        spawns.append([spawn_A, 1])
-        spawns.append([spawn_B, 1])
-        
-
 
         path = shortest_path(bit_map, spawn_A, spawn_B)
+
+        for i in range(args.num_smap):
+            piece = get_sample(bit_map, args.samp_size)
+            plot_grid(piece)
 
         if args.DEBUG_PYPLOT:
             fig, axis = plt.subplots(2, 2)
@@ -238,8 +244,8 @@ if __name__ == "__main__":
             plt.show()
         else:
             # pass
-            mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
-            # plot_grid(bit_map, path)
-            np.savez(args.DATA_DIR + f'route{gen}.npz', bit_map=bit_map, path=path)
-            np.save(args.DATA_DIR + f'spawns{gen}', np.array(spawns, dtype=object))
+            # mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
+            # print(type(bit_map), type(path))
+            plot_grid(bit_map, path)
+            # np.savez(args.anwser + f'map{gen}.npz', bit_map=bit_map, path=path)
 
