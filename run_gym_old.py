@@ -1,12 +1,9 @@
 class args:
     SIM_HEADLESS = False
-    
-    SEED = 69
-    DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
-    
-    GRAIN = 10
-    BOT_POPULATION = 2
-    BOT_SPAWN_RANGE = 5.0
+    TERRAIN_SIZE = 10.0
+    TERRAIN_POPULATION = 300
+    BOT_SPAWN_RANGE = min(TERRAIN_SIZE, 5.0)
+    BOT_POPULATION = 4
 
 from omni.isaac.kit import SimulationApp
 simulation_app = SimulationApp({"headless": args.SIM_HEADLESS})
@@ -14,7 +11,7 @@ import carb
 import numpy as np
 from omni.isaac.cloner import GridCloner
 from omni.isaac.core import World
-from omni.isaac.core.articulations import Articulation, ArticulationView
+from omni.isaac.core.articulations import ArticulationView
 from omni.isaac.core.objects import FixedCuboid
 from omni.isaac.core.prims.rigid_prim_view import RigidPrimView
 from omni.isaac.core.utils.nucleus import get_assets_root_path
@@ -43,48 +40,39 @@ cloner.define_base_env("/World/envs")
 define_prim("/World/envs/env_0")
 
 # First environment
-spawns = np.load(args.DATA_DIR + f'spawns4.npy', allow_pickle=True)
-for i, spawn in enumerate(spawns[:-2]):
+for i in range(args.TERRAIN_POPULATION):
     FixedCuboid(
         prim_path=f'/World/terrain/object_{i}', 
-        size=(spawn[1] * 2 + 1) / args.GRAIN, 
+        size=np.random.uniform(0.2, 0.4), 
         position=np.array([
-            spawn[0][0] / args.GRAIN, 
-            spawn[0][1] / args.GRAIN, 
+            (np.random.beta(.6, .6) - .5) * args.TERRAIN_SIZE * 2,
+            (np.random.beta(.6, .6) - .5) * args.TERRAIN_SIZE * 2,
             0.1
-        ])
-    )
-        
+        ]))
 add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path="/World/envs/env_0/flockingbot")
-add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path="/World/envs/env_1/flockingbot")
 
 # Cloning
 num_envs = args.BOT_POPULATION
 prim_paths = cloner.generate_paths("/World/envs/env", num_envs)
 env_pos = cloner.clone(source_prim_path="/World/envs/env_0", prim_paths=prim_paths)
-#flocking_bot_view = ArticulationView(prim_paths_expr="/World/envs/*/flockingbot", name="flocking_bot_view")
-#world.scene.add(flocking_bot_view)
-
-flockingbot0 = Articulation(prim_path="/World/envs/env_0/flockingbot", name="flockingbot_0", position=np.array([spawns[-1][0][0] / args.GRAIN, spawns[-1][0][1] / args.GRAIN, 0.1]))
-flockingbot1 = Articulation(prim_path="/World/envs/env_1/flockingbot", name="flockingbot_1", position=np.array([spawns[-2][0][0] / args.GRAIN, spawns[-2][0][1] / args.GRAIN, 0.1]))
-world.scene.add(flockingbot0)
-world.scene.add(flockingbot1)
+flocking_bot_view = ArticulationView(prim_paths_expr="/World/envs/*/flockingbot", name="flocking_bot_view")
+world.scene.add(flocking_bot_view)
 world.reset()
 
-#num_dof = flocking_bot_view.num_dof
+num_dof = flocking_bot_view.num_dof
 
 # Randomization setup
 dr.physics_view.register_simulation_context(world)
-# dr.physics_view.register_articulation_view(flocking_bot_view)
+dr.physics_view.register_articulation_view(flocking_bot_view)
 
-#with dr.trigger.on_rl_frame(num_envs=num_envs):
-#    with dr.gate.on_env_reset():
-#        dr.physics_view.randomize_articulation_view(
-#            view_name=flocking_bot_view.name,
-#            operation="additive",
-#            orientation=rep.distribution.uniform((0.0, 0.0, 0.0), (0.0, 0.0, 360.0)),
-#            position=rep.distribution.uniform((-1 * args.BOT_SPAWN_RANGE, -1 * args.BOT_SPAWN_RANGE, 0.1), (args.BOT_SPAWN_RANGE, args.BOT_SPAWN_RANGE, 0.1)),
-#        )
+with dr.trigger.on_rl_frame(num_envs=num_envs):
+    with dr.gate.on_env_reset():
+        dr.physics_view.randomize_articulation_view(
+            view_name=flocking_bot_view.name,
+            operation="additive",
+            orientation=rep.distribution.uniform((0.0, 0.0, 0.0), (0.0, 0.0, 360.0)),
+            position=rep.distribution.uniform((-1 * args.BOT_SPAWN_RANGE, -1 * args.BOT_SPAWN_RANGE, 0.1), (args.BOT_SPAWN_RANGE, args.BOT_SPAWN_RANGE, 0.1)),
+        )
 
 
 # TODO: Control flocking bot by script
@@ -106,7 +94,7 @@ while simulation_app.is_running():
         if frame_idx % 200 == 0:
             # triggers reset every 400 steps
             reset_inds = np.arange(num_envs)
-        #dr.physics_view.step_randomization(reset_inds)
+        dr.physics_view.step_randomization(reset_inds)
         world.step(render=True)
         frame_idx += 1
 

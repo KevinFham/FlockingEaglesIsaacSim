@@ -10,8 +10,9 @@ import json
 
 class args:
     SEED = 69
-    DATA_GEN_SIZE = 10
-    DATA_DIR = 'Ben_data/'
+    DATA_GEN_SIZE = 20
+    #DATA_DIR = 'Ben_data/'
+    DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
     DEBUG_PYPLOT = False
 
     TERRAIN_SIZE = 10.0
@@ -43,6 +44,7 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
     :return:
     """
     bit_map = np.zeros(shape=shape, dtype=np.uint8)
+    spawns = []
 
     # Spawn obstacles
     for i in range(args.TERRAIN_POPULATION):
@@ -51,8 +53,9 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
         size = round(np.random.uniform(obstacle_size_range[0], obstacle_size_range[1]))
 
         spawn_square(bit_map, (x, y), size, args.OBSTACLE_VALUE)
+        spawns.append([(x, y), size])
 
-    return bit_map
+    return bit_map, spawns
 
 
 def dijkstra(array, start):
@@ -162,7 +165,7 @@ def shortest_path(array, start_point, end_point):
 if __name__ == "__main__":
     name = []
     for gen in range(args.DATA_GEN_SIZE):
-        bit_map = BitMap(
+        bit_map, spawns = BitMap(
             (math.ceil(args.TERRAIN_SIZE) * args.GRAIN, math.ceil(args.TERRAIN_SIZE) * args.GRAIN),
             obstacle_size_range=args.OBSTACLE_SIZE_RANGE
         )
@@ -210,6 +213,11 @@ if __name__ == "__main__":
 
         spawn_square(bit_map, spawn_A, 1, args.BASE_VALUE)
         spawn_square(bit_map, spawn_B, 1, args.BASE_VALUE)
+        
+        spawns.append([spawn_A, 1])
+        spawns.append([spawn_B, 1])
+        
+
 
         path = shortest_path(bit_map, spawn_A, spawn_B)
 
@@ -229,8 +237,9 @@ if __name__ == "__main__":
             axis[1, 1].set_title("Accessibility w/ CC Labeling", fontsize=10, fontweight='bold')
             plt.show()
         else:
-            pass
-            # mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
+            # pass
+            mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
             # plot_grid(bit_map, path)
-    np.savez(args.DATA_DIR + f'map{gen}.npz', bit_map=bit_map, path=path)
+            np.savez(args.DATA_DIR + f'route{gen}.npz', bit_map=bit_map, path=path)
+            np.save(args.DATA_DIR + f'spawns{gen}', np.array(spawns, dtype=object))
 
