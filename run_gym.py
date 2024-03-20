@@ -3,6 +3,7 @@ class args:
     
     SEED = 69
     DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
+    USE_MAP_N = 4
     
     GRAIN = 10
     BOT_POPULATION = 2
@@ -15,6 +16,9 @@ import numpy as np
 from omni.isaac.cloner import GridCloner
 from omni.isaac.core import World
 from omni.isaac.core.articulations import Articulation, ArticulationView
+from omni.isaac.wheeled_robots.controllers import DifferentialController
+from omni.isaac.wheeled_robots.robots import WheeledRobot
+from omni.isaac.sensor import IMUSensor
 from omni.isaac.core.objects import FixedCuboid
 from omni.isaac.core.prims.rigid_prim_view import RigidPrimView
 from omni.isaac.core.utils.nucleus import get_assets_root_path
@@ -37,13 +41,10 @@ if assets_root_path is None:
 usd_path = assets_root_path + "/Isaac/Environments/Grid/default_environment.usd"
 add_reference_to_stage(usd_path=usd_path, prim_path="/World/defaultGroundPlane")
 
-# Set up environment cloner
-cloner = GridCloner(spacing=1.5)
-cloner.define_base_env("/World/envs")
-define_prim("/World/envs/env_0")
 
-# First environment
-spawns = np.load(args.DATA_DIR + f'spawns4.npy', allow_pickle=True)
+# Spawn obstacles
+spawns = np.load(args.DATA_DIR + f'spawns{args.USE_MAP_N}.npy', allow_pickle=True)
+'''
 for i, spawn in enumerate(spawns[:-2]):
     FixedCuboid(
         prim_path=f'/World/terrain/object_{i}', 
@@ -53,62 +54,70 @@ for i, spawn in enumerate(spawns[:-2]):
             spawn[0][1] / args.GRAIN, 
             0.1
         ])
-    )
-        
-add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path="/World/envs/env_0/flockingbot")
-add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path="/World/envs/env_1/flockingbot")
+    )'''
 
-# Cloning
-num_envs = args.BOT_POPULATION
-prim_paths = cloner.generate_paths("/World/envs/env", num_envs)
-env_pos = cloner.clone(source_prim_path="/World/envs/env_0", prim_paths=prim_paths)
-#flocking_bot_view = ArticulationView(prim_paths_expr="/World/envs/*/flockingbot", name="flocking_bot_view")
-#world.scene.add(flocking_bot_view)
-
-flockingbot0 = Articulation(prim_path="/World/envs/env_0/flockingbot", name="flockingbot_0", position=np.array([spawns[-1][0][0] / args.GRAIN, spawns[-1][0][1] / args.GRAIN, 0.1]))
-flockingbot1 = Articulation(prim_path="/World/envs/env_1/flockingbot", name="flockingbot_1", position=np.array([spawns[-2][0][0] / args.GRAIN, spawns[-2][0][1] / args.GRAIN, 0.1]))
-world.scene.add(flockingbot0)
-world.scene.add(flockingbot1)
+# Spawn robot
+add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path="/World/flockingbot")
+diff = DifferentialController(name="flockingbot_diff", wheel_radius=0.03, wheel_base=0.1125)
+robot = WheeledRobot(
+    prim_path="/World/flockingbot", 
+    usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", 
+    wheel_dof_names=["left_wheel_joint", "right_wheel_joint"], 
+    wheel_dof_indices=[0,1], 
+    create_robot=True,
+    position=np.array([spawns[-1][0][0] / args.GRAIN, spawns[-1][0][1] / args.GRAIN, 0.1])
+)
+world.scene.add(robot)
 world.reset()
 
-#num_dof = flocking_bot_view.num_dof
-
-# Randomization setup
-dr.physics_view.register_simulation_context(world)
-# dr.physics_view.register_articulation_view(flocking_bot_view)
-
-#with dr.trigger.on_rl_frame(num_envs=num_envs):
-#    with dr.gate.on_env_reset():
-#        dr.physics_view.randomize_articulation_view(
-#            view_name=flocking_bot_view.name,
-#            operation="additive",
-#            orientation=rep.distribution.uniform((0.0, 0.0, 0.0), (0.0, 0.0, 360.0)),
-#            position=rep.distribution.uniform((-1 * args.BOT_SPAWN_RANGE, -1 * args.BOT_SPAWN_RANGE, 0.1), (args.BOT_SPAWN_RANGE, args.BOT_SPAWN_RANGE, 0.1)),
-#        )
 
 
-# TODO: Control flocking bot by script
 """ Flocking Bot Script Control
 """
-# set the FlockingBot_ScriptControl Main Controller node to a path
-# somehow get IR, orientation, and position data out? use that data and create a map, outside of the controller
-# output random linear and angular velocities
-
-# end goal is to create a shit load of maps
+class FlockingBot:
+    def __init__(self, robot: WheeledRobot, diff: DifferentialController):
+        self.robot = robot
+        self.robot.initialize()
+        self.diff = diff
+        self.imu = IMUSensor(prim_path="/World/flockingbot/chassis/Imu_Sensor")
+        self.imu.initialize()
+    def normalize_angle(self, angle): return angle + np.pi * 2 if angle < 0.0 else angle
+    def quaternion_to_euler_x(self, quat):
+        eul_x = np.arctan2( 2.0 * (quat[3] * quat[0] + quat[1] * quat[2]), 1.0 - 2.0 * (quat[0] * quat[0] + quat[1] * quat[1]) )
+        return eul_x
+    def get_position(self): return self.robot.get_world_pose()[0]
+    def get_orientation_quat(self): return self.imu.get_current_frame()['orientation']
+    def get_orientation_euler_x(self): return self.quaternion_to_euler_x(self.get_orientation_quat())
+    def get_heading_angle_rad(self, destination_pos=np.array([0, 0, 0])):
+        position_diff = np.subtract(self.get_position(), destination_pos)
+        heading_angle = np.fmod(-np.arctan2(position_diff[1], position_diff[0]), np.pi * 2)
+        return self.normalize_angle(np.fmod(heading_angle - self.get_orientation_euler_x() + np.pi, np.pi * 2))
+    def forward(self, speed, rotation): self.robot.apply_action(self.diff.forward([speed, rotation]))			# +rotation = left, -rotation = right
+    def go_to_position(self, pos):
+        heading = self.get_heading_angle_rad(pos) - np.pi
+        self.forward(
+            0.1 * (np.pi - abs(heading / np.pi)) / np.pi, 
+            -0.5 * heading
+        )
+        
 
 
 """ Run Simulation
 """
+route = np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path']
+flockingbot = FlockingBot(robot, diff)
+
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
-        reset_inds = list()
-        if frame_idx % 200 == 0:
-            # triggers reset every 400 steps
-            reset_inds = np.arange(num_envs)
-        #dr.physics_view.step_randomization(reset_inds)
+        
+        # print(flockingbot.get_heading_angle_rad())
+        flockingbot.go_to_position([0., 0., 0.])
+        
         world.step(render=True)
         frame_idx += 1
 
 simulation_app.close()
+
+
 
