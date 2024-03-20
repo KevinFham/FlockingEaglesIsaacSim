@@ -44,7 +44,6 @@ add_reference_to_stage(usd_path=usd_path, prim_path="/World/defaultGroundPlane")
 
 # Spawn obstacles
 spawns = np.load(args.DATA_DIR + f'spawns{args.USE_MAP_N}.npy', allow_pickle=True)
-'''
 for i, spawn in enumerate(spawns[:-2]):
     FixedCuboid(
         prim_path=f'/World/terrain/object_{i}', 
@@ -54,7 +53,7 @@ for i, spawn in enumerate(spawns[:-2]):
             spawn[0][1] / args.GRAIN, 
             0.1
         ])
-    )'''
+    )
 
 # Spawn robot
 add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path="/World/flockingbot")
@@ -88,10 +87,13 @@ class FlockingBot:
     def get_position(self): return self.robot.get_world_pose()[0]
     def get_orientation_quat(self): return self.imu.get_current_frame()['orientation']
     def get_orientation_euler_x(self): return self.quaternion_to_euler_x(self.get_orientation_quat())
-    def get_heading_angle_rad(self, destination_pos=np.array([0, 0, 0])):
-        position_diff = np.subtract(self.get_position(), destination_pos)
+    def get_heading_angle_rad(self, dest_pos):
+        position_diff = np.subtract(self.get_position(), dest_pos)
         heading_angle = np.fmod(-np.arctan2(position_diff[1], position_diff[0]), np.pi * 2)
         return self.normalize_angle(np.fmod(heading_angle - self.get_orientation_euler_x() + np.pi, np.pi * 2))
+    def get_distance_to_destination(self, dest_pos):
+        position_diff = np.subtract(self.get_position(), dest_pos)
+        return np.sqrt(np.power(position_diff[0], 2) + np.power(position_diff[1], 2))
     def forward(self, speed, rotation): self.robot.apply_action(self.diff.forward([speed, rotation]))			# +rotation = left, -rotation = right
     def go_to_position(self, pos):
         heading = self.get_heading_angle_rad(pos) - np.pi
@@ -105,14 +107,18 @@ class FlockingBot:
 """ Run Simulation
 """
 route = np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path']
+route = [np.append(p, [0.]) / args.GRAIN for p in route]		# Adding a Z dimension and dividing by the grain
+route_idx = 0
 flockingbot = FlockingBot(robot, diff)
 
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
         
-        # print(flockingbot.get_heading_angle_rad())
-        flockingbot.go_to_position([0., 0., 0.])
+        print(route[route_idx])
+        flockingbot.go_to_position(route[route_idx])
+        if flockingbot.get_distance_to_destination(route[route_idx]) < 0.2:
+            route_idx = min(len(route) - 1, route_idx + 1)
         
         world.step(render=True)
         frame_idx += 1
