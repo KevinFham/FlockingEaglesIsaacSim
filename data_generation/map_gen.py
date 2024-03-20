@@ -25,7 +25,7 @@ class args:
     BASE_VALUE = 2
     ACCESSIBLE_VALUE = 3
 
-np.random.seed(args.SEED)
+#np.random.seed(args.SEED)
 
 
 def clamp(value, minim=0, maxim=(round(args.TERRAIN_SIZE) * args.GRAIN) - 1):
