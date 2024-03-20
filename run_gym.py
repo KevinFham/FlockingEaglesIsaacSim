@@ -3,7 +3,7 @@ class args:
     
     SEED = 69
     DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
-    USE_MAP_N = 4
+    USE_MAP_N = 2
     
     GRAIN = 10
     BOT_POPULATION = 2
@@ -13,20 +13,17 @@ from omni.isaac.kit import SimulationApp
 simulation_app = SimulationApp({"headless": args.SIM_HEADLESS})
 import carb
 import numpy as np
-from omni.isaac.cloner import GridCloner
 from omni.isaac.core import World
-from omni.isaac.core.articulations import Articulation, ArticulationView
 from omni.isaac.wheeled_robots.controllers import DifferentialController
 from omni.isaac.wheeled_robots.robots import WheeledRobot
 from omni.isaac.sensor import IMUSensor
-from omni.isaac.core.objects import FixedCuboid
-from omni.isaac.core.prims.rigid_prim_view import RigidPrimView
-from omni.isaac.core.utils.nucleus import get_assets_root_path
-from omni.isaac.core.utils.prims import define_prim, get_prim_at_path
-from omni.isaac.core.utils.stage import add_reference_to_stage, get_current_stage
-import omni.replicator.core as rep
-import omni.replicator.isaac as dr	# set up randomization with omni.replicator.isaac, imported as dr
+from omni.isaac.core.objects import FixedCuboid, VisualCuboid
+#from omni.isaac.core.prims.rigid_prim_view import RigidPrimView
 import omni.isaac.core.utils.prims as prim_utils
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+from omni.isaac.core.utils.stage import add_reference_to_stage #, get_current_stage
+#import omni.replicator.core as rep
+#import omni.replicator.isaac as dr	# set up randomization with omni.replicator.isaac, imported as dr
 
 
 """ Environment Generation
@@ -47,6 +44,19 @@ spawns = np.load(args.DATA_DIR + f'spawns{args.USE_MAP_N}.npy', allow_pickle=Tru
 for i, spawn in enumerate(spawns[:-2]):
     FixedCuboid(
         prim_path=f'/World/terrain/object_{i}', 
+        size=(spawn[1] * 2 + 1) / args.GRAIN, 
+        position=np.array([
+            spawn[0][0] / args.GRAIN, 
+            spawn[0][1] / args.GRAIN, 
+            0.1
+        ])
+    )
+
+# Spawn bases for visual clarity
+for i, spawn in enumerate(spawns[-2:]):
+    VisualCuboid(
+        prim_path=f'/World/terrain/base_{i}', 
+        color=np.array([0, 100, 0]),
         size=(spawn[1] * 2 + 1) / args.GRAIN, 
         position=np.array([
             spawn[0][0] / args.GRAIN, 
@@ -99,7 +109,7 @@ class FlockingBot:
         heading = self.get_heading_angle_rad(pos) - np.pi
         self.forward(
             0.1 * (np.pi - abs(heading / np.pi)) / np.pi, 
-            -0.5 * heading
+            -0.75 * heading
         )
         
 
@@ -114,8 +124,6 @@ flockingbot = FlockingBot(robot, diff)
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
-        
-        print(route[route_idx])
         flockingbot.go_to_position(route[route_idx])
         if flockingbot.get_distance_to_destination(route[route_idx]) < 0.2:
             route_idx = min(len(route) - 1, route_idx + 1)
