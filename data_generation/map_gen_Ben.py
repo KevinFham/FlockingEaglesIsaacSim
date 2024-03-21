@@ -11,13 +11,13 @@ import jax.numpy as jnp
 
 
 class args:
-    show = True
+    show = False
     SEED = 69
     num_maps = 1
     anwser = 'Ben_data/key'
     pieces = 'Ben_data/pieces'
     DEBUG_PYPLOT = False
-    num_smap = 2
+    num_smap = 5
     samp_size = 100
 
     TERRAIN_SIZE = 100.0
