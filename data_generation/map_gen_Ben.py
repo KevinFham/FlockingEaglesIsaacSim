@@ -18,7 +18,7 @@ class args:
     pieces = 'Ben_data/pieces'
     DEBUG_PYPLOT = False
     num_smap = 5
-    samp_size = 100
+    samp_size = 200
 
     TERRAIN_SIZE = 100.0
     OBSTACLE_SIZE_RANGE = (1, 10)
@@ -149,12 +149,12 @@ def get_sample(full_arr, smapsize):    # Generate random indices to extract a 20
 def find_coordinates(larger_array, smaller_array):
     larger_shape = larger_array.shape
     smaller_shape = smaller_array.shape
-
+    matches = []
     for i in range(larger_shape[0] - smaller_shape[0] + 1):
         for j in range(larger_shape[1] - smaller_shape[1] + 1):
             if jnp.array_equal(larger_array[i:i+smaller_shape[0], j:j+smaller_shape[1]], smaller_array):
-                return (i, j)
-
+                matches.append((i,j))
+    return matches
 
 # def DFS(grid, start, goal):
 #     visited = [[False for _ in range(bit_map_accessible.shape[0])] for _ in range(bit_map_accessible.shape[1])]
@@ -262,8 +262,8 @@ if __name__ == "__main__":
             for i in range(args.num_smap):
                 piece = get_sample(bit_map, args.samp_size)
                 plot_grid(piece)
-                x, y = find_coordinates(bit_map, piece)
-                print(x, y)
+                match = find_coordinates(bit_map, piece)
+                print(match)
 
 
 
