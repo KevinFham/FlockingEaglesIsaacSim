@@ -6,16 +6,19 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import heapq
 import json
+import jax.numpy as jnp
+
 
 
 class args:
+    show = False
     SEED = 69
     num_maps = 1
     anwser = 'Ben_data/key'
     pieces = 'Ben_data/pieces'
     DEBUG_PYPLOT = False
-    num_smap = 1
-    samp_size = 100
+    num_smap = 5
+    samp_size = 200
 
     TERRAIN_SIZE = 100.0
     OBSTACLE_SIZE_RANGE = (1, 10)
@@ -103,14 +106,15 @@ def numpy_array_to_graph(array):
     return graph
 
 def plot_grid(array, path=None):
-    plt.imshow(array, cmap='binary')
-    plt.colorbar()
+    if args.show == True:
+        plt.imshow(array, cmap='binary')
+        plt.colorbar()
 
-    # Plot path
-    if path is not None:
-        plt.plot([point[1] for point in path], [point[0] for point in path], color='red')
+        # Plot path
+        if path is not None:
+            plt.plot([point[1] for point in path], [point[0] for point in path], color='red')
 
-    plt.show()
+        plt.show()
 
 
 def shortest_path(array, start_point, end_point):
@@ -139,8 +143,18 @@ def get_sample(full_arr, smapsize):    # Generate random indices to extract a 20
     end_row = start_row + smapsize
     end_col = start_col + smapsize
     subarray = full_arr[start_row:end_row, start_col:end_col]
+    print("form generation:", start_row, start_col)
     return subarray
 
+def find_coordinates(larger_array, smaller_array):
+    larger_shape = larger_array.shape
+    smaller_shape = smaller_array.shape
+    matches = []
+    for i in range(larger_shape[0] - smaller_shape[0] + 1):
+        for j in range(larger_shape[1] - smaller_shape[1] + 1):
+            if jnp.array_equal(larger_array[i:i+smaller_shape[0], j:j+smaller_shape[1]], smaller_array):
+                matches.append((i,j))
+    return matches
 
 # def DFS(grid, start, goal):
 #     visited = [[False for _ in range(bit_map_accessible.shape[0])] for _ in range(bit_map_accessible.shape[1])]
@@ -223,9 +237,6 @@ if __name__ == "__main__":
 
         path = shortest_path(bit_map, spawn_A, spawn_B)
 
-        for i in range(args.num_smap):
-            piece = get_sample(bit_map, args.samp_size)
-            plot_grid(piece)
 
         if args.DEBUG_PYPLOT:
             fig, axis = plt.subplots(2, 2)
@@ -248,4 +259,11 @@ if __name__ == "__main__":
             # print(type(bit_map), type(path))
             plot_grid(bit_map, path)
             # np.savez(args.anwser + f'map{gen}.npz', bit_map=bit_map, path=path)
+            for i in range(args.num_smap):
+                piece = get_sample(bit_map, args.samp_size)
+                plot_grid(piece)
+                match = find_coordinates(bit_map, piece)
+                print(match)
+
+
 
