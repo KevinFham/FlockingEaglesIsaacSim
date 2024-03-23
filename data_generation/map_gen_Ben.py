@@ -13,12 +13,13 @@ import jax.numpy as jnp
 class args:
     show = False
     SEED = 69
-    num_maps = 1
+    num_maps = 100
+    data_set = "data/data_set"
     anwser = 'Ben_data/key'
     pieces = 'Ben_data/pieces'
     DEBUG_PYPLOT = False
     num_smap = 5
-    samp_size = 200
+    samp_size = 100
 
     TERRAIN_SIZE = 100.0
     OBSTACLE_SIZE_RANGE = (1, 10)
@@ -59,6 +60,7 @@ def BitMap(shape, obstacle_size_range=(1, 3)) -> np.ndarray:
         spawn_square(bit_map, (x, y), size, args.OBSTACLE_VALUE)
 
     return bit_map
+
 
 
 def dijkstra(array, start):
@@ -258,12 +260,17 @@ if __name__ == "__main__":
             # mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
             # print(type(bit_map), type(path))
             plot_grid(bit_map, path)
-            # np.savez(args.anwser + f'map{gen}.npz', bit_map=bit_map, path=path)
             for i in range(args.num_smap):
+                samples = []
+                matches = []
                 piece = get_sample(bit_map, args.samp_size)
                 plot_grid(piece)
                 match = find_coordinates(bit_map, piece)
-                print(match)
+                matches.append(match)
+                samples.append(piece)
+            samples = np.array(samples)
+            key = np.array(matches)
+            np.savez('/home/ben/Research/flockingeaglesisaacsim/data_generation/data_set/' + f'map{gen}.npz', bit_map=bit_map, path=path, section=samples, key=key)
 
 
 
