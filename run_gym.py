@@ -14,6 +14,8 @@ from omni.isaac.kit import SimulationApp
 simulation_app = SimulationApp({"headless": args.SIM_HEADLESS})
 import carb
 import numpy as np
+import matplotlib.pyplot as plt
+from math import isclose
 from omni.isaac.core import World
 from omni.isaac.wheeled_robots.controllers import DifferentialController
 from omni.isaac.wheeled_robots.robots import WheeledRobot
@@ -92,6 +94,14 @@ class FlockingBot:
         self.diff = diff
         self.imu = IMUSensor(prim_path=args.FLOCKINGBOT_ASSET_DIR + "/chassis/Imu_Sensor")
         self.imu.initialize()
+        self.mapping_protocol = False
+        self.ir_map_size = 100
+        self.ir_map = np.full((self.ir_map_size, self.ir_map_size), 0, dtype=np.uint8)
+        self.ir_map_origin = [0., 0.]
+        self.ir_max_range = 10.0
+    def clamp(self, value, minim=0, maxim=None): 
+        if not maxim: maxim = self.ir_map_size - 1
+        return max(minim, min(value, maxim))
     def normalize_angle(self, angle): return angle + np.pi * 2 if angle < 0.0 else angle
     def quaternion_to_euler_x(self, quat):
         eul_x = np.arctan2( 2.0 * (quat[3] * quat[0] + quat[1] * quat[2]), 1.0 - 2.0 * (quat[0] * quat[0] + quat[1] * quat[1]) )
@@ -99,8 +109,21 @@ class FlockingBot:
     def get_position(self): return self.robot.get_world_pose()[0]
     def get_orientation_quat(self): return self.imu.get_current_frame()['orientation']
     def get_orientation_euler_x(self): return self.quaternion_to_euler_x(self.get_orientation_quat())
-    def get_ir_reading(self, ir): return acquire_ultrasonic_sensor_interface().get_depth_data(args.FLOCKINGBOT_ASSET_DIR + f'/chassis/US_sensors/UltrasonicArray_{ir}', 0) / 1000
+    def get_ir_reading(self, ir): return acquire_ultrasonic_sensor_interface().get_linear_depth_data(args.FLOCKINGBOT_ASSET_DIR + f'/chassis/US_sensors/UltrasonicArray_{ir}', 0)[0, 0] * args.GRAIN
     def get_all_ir_readings(self): return [self.get_ir_reading(0), self.get_ir_reading(1), self.get_ir_reading(2)]
+    def get_ir_map(self): return self.ir_map
+    def set_mapping_protocol(self, enable: bool): self.mapping_protocol = enable
+    def set_ir_map_origin(self, new_pos): self.ir_map_origin[0], self.ir_map_origin[1] = new_pos[0] * args.GRAIN, new_pos[1] * args.GRAIN
+    def map_ir_readings(self):
+        position = self.get_position() * args.GRAIN
+        position[0], position[1] = round(self.ir_map_size / 2 + position[0] - self.ir_map_origin[0]), round(self.ir_map_size / 2 + position[1] - self.ir_map_origin[1])
+        orient = self.get_orientation_euler_x()
+        for ir, angle_offset in zip(self.get_all_ir_readings() * args.GRAIN, [-0.25 * np.pi, 0, 0.25 * np.pi]):
+            if self.ir_max_range - ir > 0.0:
+                x = round(ir * np.sin(orient + angle_offset) + position[0])
+                y = round(ir * np.cos(orient + angle_offset) + position[1])
+                if x < self.ir_map_size and y < self.ir_map_size: ir_map[x][y] = 1
+    def reset_map(self): self.ir_map = np.full((self.ir_map_size, self.ir_map_size), 0, dtype=np.uint8)
     def get_heading_angle_rad(self, dest_pos):
         position_diff = np.subtract(self.get_position(), dest_pos)
         heading_angle = np.fmod(-np.arctan2(position_diff[1], position_diff[0]), np.pi * 2)
@@ -124,14 +147,27 @@ route = np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path']
 route = [np.append(p, [0.]) / args.GRAIN for p in route]		# Adding a Z dimension and dividing by the grain
 route_idx = 0
 flockingbot = FlockingBot(robot, diff)
+flockingbot.set_mapping_protocol(True)
+flockingbot.set_ir_map_origin(flockingbot.get_position()[:-1])
+ir_map = flockingbot.get_ir_map()
+plt.ion()
 
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
+        # Route travel protocol
         flockingbot.go_to_position(route[route_idx])
         if flockingbot.get_distance_to_destination(route[route_idx]) < 0.2:
             route_idx = min(len(route) - 1, route_idx + 1)
-        print(flockingbot.get_all_ir_readings())
+            
+        # Mapping protocol TODO: try slowing the thing down
+        flockingbot.map_ir_readings()
+        if np.array_equal(ir_map, flockingbot.get_ir_map()) and frame_idx % 100 == 0:
+            ir_map = flockingbot.get_ir_map()
+            plt.imshow(ir_map)
+            plt.draw()
+            plt.pause(0.0001)
+            plt.clf()
         
         world.step(render=True)
         frame_idx += 1
