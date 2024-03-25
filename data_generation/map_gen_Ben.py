@@ -13,7 +13,7 @@ import jax.numpy as jnp
 class args:
     show = False
     SEED = 69
-    num_maps = 100
+    num_maps = 1
     data_set = "data/data_set"
     anwser = 'Ben_data/key'
     pieces = 'Ben_data/pieces'
@@ -21,7 +21,7 @@ class args:
     num_smap = 5
     samp_size = 100
 
-    TERRAIN_SIZE = 100.0
+    TERRAIN_SIZE = 50.0
     OBSTACLE_SIZE_RANGE = (1, 10)
     TERRAIN_POPULATION = 2100
     GRAIN = 10
@@ -140,23 +140,39 @@ def shortest_path(array, start_point, end_point):
     return shortest_path
 
 def get_sample(full_arr, smapsize):    # Generate random indices to extract a 20x20 subarray
-    start_row = np.random.randint(0, 1000 - smapsize)  # To ensure the subarray fits within the array
-    start_col = np.random.randint(0, 1000 - smapsize)
+    start_row = np.random.randint(0, 500 - smapsize)  # To ensure the subarray fits within the array
+    start_col = np.random.randint(0, 500 - smapsize)
     end_row = start_row + smapsize
     end_col = start_col + smapsize
     subarray = full_arr[start_row:end_row, start_col:end_col]
     print("form generation:", start_row, start_col)
     return subarray
 
+
+
 def find_coordinates(larger_array, smaller_array):
     larger_shape = larger_array.shape
     smaller_shape = smaller_array.shape
-    matches = []
+    best_match_score = float('inf')  # Initialize with a large value
+    best_match_coords = None
+
     for i in range(larger_shape[0] - smaller_shape[0] + 1):
         for j in range(larger_shape[1] - smaller_shape[1] + 1):
-            if jnp.array_equal(larger_array[i:i+smaller_shape[0], j:j+smaller_shape[1]], smaller_array):
-                matches.append((i,j))
-    return matches
+            subarray = larger_array[i:i + smaller_shape[0], j:j + smaller_shape[1]]
+            mse = np.mean(np.square(subarray - smaller_array))
+            confidence = 1 / (1 + mse)  # Confidence level based on inverse of MSE
+            if confidence > 0.5:  # You can adjust this threshold as needed
+                if mse < best_match_score:
+                    best_match_score = mse
+                    best_match_coords = (i, j)
+
+    return best_match_coords, 1 / (1 + best_match_score)  # Return coordinates and confidence level
+
+def randomly_rotate_array(array):
+    num_rotations = np.random.randint(4)  # Randomly choose 0, 1, 2, or 3 rotations
+    rotated_array = np.rot90(array, num_rotations)  # Rotate the array
+    return rotated_array, num_rotations
+
 
 # def DFS(grid, start, goal):
 #     visited = [[False for _ in range(bit_map_accessible.shape[0])] for _ in range(bit_map_accessible.shape[1])]
@@ -265,12 +281,16 @@ if __name__ == "__main__":
                 matches = []
                 piece = get_sample(bit_map, args.samp_size)
                 plot_grid(piece)
-                match = find_coordinates(bit_map, piece)
+                noise = gaussian_filter(piece, 0.5)
+                rot, _ = randomly_rotate_array(noise)
+                match, confidence = find_coordinates(bit_map, noise)
+                print(match,  confidence)
                 matches.append(match)
                 samples.append(piece)
             samples = np.array(samples)
             key = np.array(matches)
-            np.savez('/home/ben/Research/flockingeaglesisaacsim/data_generation/data_set/' + f'map{gen}.npz', bit_map=bit_map, path=path, section=samples, key=key)
+            # np.savez('/home/ben/Research/flockingeaglesisaacsim/data_generation/data_set/' + 'map' + str(gen + 58) + '.npz', bit_map=bit_map, path=path, section=samples, key=key)
+            print('saves map number:', gen +58)
 
 
 
