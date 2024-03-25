@@ -1,21 +1,26 @@
+import numpy as np
+from PIL import Image
+
 class args:
     SIM_HEADLESS = False
     
     SEED = 69
     DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
     USE_MAP_N = 2
+    MAP_SIZE = np.asarray(Image.open(DATA_DIR + f'map{USE_MAP_N}.png').convert('RGB'))
     
     GRAIN = 10
-    BOT_POPULATION = 2
+    BOT_POPULATION = 1
     BOT_SPAWN_RANGE = 5.0
     FLOCKINGBOT_ASSET_DIR = "/World/flockingbot"
 
 from omni.isaac.kit import SimulationApp
 simulation_app = SimulationApp({"headless": args.SIM_HEADLESS})
 import carb
-import numpy as np
+import heapq
+from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
-from math import isclose, ceil
+from math import isclose, ceil, sqrt
 from omni.isaac.core import World
 from omni.isaac.wheeled_robots.controllers import DifferentialController
 from omni.isaac.wheeled_robots.robots import WheeledRobot
@@ -45,7 +50,7 @@ add_reference_to_stage(usd_path=usd_path, prim_path="/World/defaultGroundPlane")
 
 # Spawn obstacles
 spawns = np.load(args.DATA_DIR + f'spawns{args.USE_MAP_N}.npy', allow_pickle=True)
-for i, spawn in enumerate(spawns[:-2]):
+for i, spawn in enumerate(spawns[:-3]):
     FixedCuboid(
         prim_path=f'/World/terrain/object_{i}', 
         size=(spawn[1] * 2 + 1) / args.GRAIN, 
@@ -92,7 +97,7 @@ robot = WheeledRobot(
     wheel_dof_names=["left_wheel_joint", "right_wheel_joint"], 
     wheel_dof_indices=[0,1], 
     create_robot=True,
-    position=np.array([spawns[-1][0][0] / args.GRAIN, spawns[-1][0][1] / args.GRAIN, 0.1])		#np.array([0,0,0])
+    position=np.array([spawns[-3][0][0] / args.GRAIN, spawns[-3][0][1] / args.GRAIN, 0.1])		#np.array([0,0,0])
 )
 world.scene.add(robot)
 world.reset()
@@ -103,12 +108,26 @@ world.reset()
 """
 class FlockingBot:
     def __init__(self, robot: WheeledRobot, diff: DifferentialController):
+        self.ACCESSIBLE_VAL = 2
+        self.OBSTACLE_VAL = 1
+        self.STATES = ['IDLE', 'RELOCATING', 'GO_A', 'GO_B']
+
+        self.state = 'IDLE'
         self.robot = robot
         self.robot.initialize()
         self.diff = diff
         self.imu = IMUSensor(prim_path=args.FLOCKINGBOT_ASSET_DIR + "/chassis/Imu_Sensor")
         self.imu.initialize()
         self.mapping_protocol = False
+        self.global_map = np.zeros((100, 100), dtype=np.uint8)
+        for spawn in spawns[:-3]:
+            size = spawn[1]
+            for i in range(-size, size + 1):
+                for j in range(-size, size + 1):
+                    self.global_map[max(0, min(spawn[0][0] + i, round(self.global_map.shape[0]) - 1)), max(0, min(spawn[0][1] + j, round(self.global_map.shape[1]) - 1))] = self.OBSTACLE_VAL
+        self.global_map_accessible = np.zeros((self.global_map.shape[0], self.global_map.shape[1]), dtype=np.uint8)
+        self.global_map_accessible[gaussian_filter(self.global_map.astype('float32'), sigma=1.2) < 0.1] = self.ACCESSIBLE_VAL
+        self.route_buffer = []
         self.ir_count = 8								# 3
         self.ir_configuration = list(np.linspace(-0.5 * np.pi, 1.25 * np.pi, num=8)) 	# np.linspace(-0.25 * np.pi, 0.25 * np.pi, num=3)
         self.ir_map_size = 20 * args.GRAIN
@@ -122,6 +141,63 @@ class FlockingBot:
     def quaternion_to_euler_x(self, quat):
         eul_x = np.arctan2( 2.0 * (quat[3] * quat[0] + quat[1] * quat[2]), 1.0 - 2.0 * (quat[0] * quat[0] + quat[1] * quat[1]) )
         return eul_x
+    def euclidian_distance(self, pos1, pos2):
+        return sqrt((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2)
+    def dijkstra(map, start):
+        rows, cols = map.shape
+        visited = np.zeros(map.shape, dtype=bool)
+        distances = np.full(map.shape, np.inf)
+        distances[start[0], start[1]] = 0
+        priority_queue = [(0, start)]
+        while priority_queue:
+            current_distance, (current_row, current_col) = heapq.heappop(priority_queue)
+            if visited[current_row, current_col]:
+                continue
+            visited[current_row, current_col] = True
+            for dr, dc in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                new_row, new_col = current_row + dr, current_col + dc
+                if 0 <= new_row < rows and 0 <= new_col < cols and not visited[new_row, new_col] and bit_map_accessible[new_row, new_col] == self.ACCESSIBLE_VAL:
+                    if map[new_row, new_col] != self.OBSTACLE_VAL:
+                        distance = current_distance + 1
+                        if distance < distances[new_row, new_col]:
+                            distances[new_row, new_col] = distance
+                            heapq.heappush(priority_queue, (distance, (new_row, new_col)))
+        return distances
+    def shortest_path(map, start_point, end_point):
+        distances = self.dijkstra(map, start_point)
+        current_point = end_point
+        shortest_path = [current_point]
+        next_point = start_point
+        interval = 0
+        while current_point != start_point:
+            min_neighbor_distance = np.inf
+            for dr, dc in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                neighbor_row, neighbor_col = current_point[0] + dr, current_point[1] + dc
+                if 0 <= neighbor_row < map.shape[0] and 0 <= neighbor_col < map.shape[1] and distances[neighbor_row, neighbor_col] < min_neighbor_distance:
+                    min_neighbor_distance = distances[neighbor_row, neighbor_col]
+                    next_point = (neighbor_row, neighbor_col)
+            shortest_path.append(next_point)
+            current_point = next_point
+        return shortest_path
+    def update_state(self, new_state=None):
+        # TODO: expand
+        if new_state in self.STATES:
+            self.state = new_state
+            return
+        elif self.state == 'IDLE':
+            if self.get_distance_to_destination(np.append(spawns[-1][0], [0.])) < 0.2:
+                self.state = 'GO_A'
+            elif self.get_distance_to_destination(np.append(spawns[-2][0], [0.])) < 0.2:
+                self.state = 'GO_B'
+            else:
+                self.state = 'RELOCATING'
+                to_A = euclidian_distance(self.get_position(), spawns[-1][0])
+                to_B = euclidian_distance(self.get_position(), spawns[-2][0])
+                self.route_buffer
+                
+        elif state == 'RELOCATING':
+            pass
+                
     def get_position(self): return self.robot.get_world_pose()[0]
     def get_orientation_quat(self): return self.imu.get_current_frame()['orientation']
     def get_orientation_euler_x(self): return self.quaternion_to_euler_x(self.get_orientation_quat())
@@ -149,6 +225,7 @@ class FlockingBot:
         return np.sqrt(np.power(position_diff[0], 2) + np.power(position_diff[1], 2))
     def forward(self, speed, rotation): self.robot.apply_action(self.diff.forward([speed, rotation]))			# +rotation = left, -rotation = right
     def go_to_position(self, pos, speed_factor=1.0):
+        ir_danger = [self.get_ir_reading(i) / self.ir_max_range for i in range(1, 4)]
         heading = self.get_heading_angle_rad(pos) - np.pi
         self.forward(
             0.1 * speed_factor * (np.pi - abs(heading / np.pi)) / np.pi, 
@@ -171,8 +248,14 @@ plt.ion()
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
+        flockingbot.update_state()
+        
+        if flockingbot.state == 'RELOCATING':
+            
+    
         # Route travel protocol
-        flockingbot.go_to_position(route[route_idx], 0.5)
+        
+        '''flockingbot.go_to_position(route[route_idx], 0.5)
         if flockingbot.get_distance_to_destination(route[route_idx]) < 0.2:
             route_idx = min(len(route) - 1, route_idx + 1)  
             
@@ -183,7 +266,7 @@ while simulation_app.is_running():
             plt.imshow(ir_map)
             plt.draw()
             plt.pause(0.0001)
-            plt.clf()
+            plt.clf()'''
         
         world.step(render=True)
         frame_idx += 1

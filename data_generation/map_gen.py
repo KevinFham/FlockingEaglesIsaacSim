@@ -23,9 +23,10 @@ class args:
 
     OBSTACLE_VALUE = 1
     BASE_VALUE = 2
-    ACCESSIBLE_VALUE = 3
+    ROBOT_SPAWN_VALUE = 3
+    ACCESSIBLE_VALUE = 4
 
-#np.random.seed(args.SEED)
+np.random.seed(args.SEED)
 
 
 def clamp(value, minim=0, maxim=(round(args.TERRAIN_SIZE) * args.GRAIN) - 1):
@@ -209,16 +210,32 @@ if __name__ == "__main__":
         # Spawn the candidate pair with the greatest distance apart
         # _, spawn_A, spawn_B = max(best_candidates)
 
-        # Choose a random candidate
-        _, spawn_A, spawn_B = best_candidates[np.random.choice(len(best_candidates))]
+        # Choose a random candidate pair for base spawns
+        _, spawn_baseA, spawn_baseB = best_candidates[np.random.choice(len(best_candidates))]
 
-        spawn_square(bit_map, spawn_A, 1, args.BASE_VALUE)
-        spawn_square(bit_map, spawn_B, 1, args.BASE_VALUE)
-        
-        spawns.append([spawn_A, 1])
-        spawns.append([spawn_B, 1])
+        # Choose another candidate as a spawn point for the robot
+        robot_spawn = (0, (0, 0))
+        for cand in list(filter(lambda x: x != spawn_baseA and x != spawn_baseB, candidates)):
+            # Check if spawn is accessible to bases
+            if bit_map_access_labeled[cand[0], cand[1]] == bit_map_access_labeled[spawn_baseA[0], spawn_baseA[1]]:
+                # Maximize manhatten distance of the robot's spawn location
+                baseA_diff = abs(np.array(cand) - np.array(spawn_baseA))
+                baseB_diff = abs(np.array(cand) - np.array(spawn_baseB))
+                base_diff = baseA_diff + baseB_diff
+                if base_diff[0] + base_diff[1] > robot_spawn[0]:
+                    robot_spawn = (base_diff[0] + base_diff[1], cand)
 
-        path = shortest_path(bit_map, spawn_A, spawn_B)
+        # Spawn bases and robot
+        spawn_size = 1
+        spawn_square(bit_map, robot_spawn[1], spawn_size, args.ROBOT_SPAWN_VALUE)
+        spawn_square(bit_map, spawn_baseA, spawn_size, args.BASE_VALUE)
+        spawn_square(bit_map, spawn_baseB, spawn_size, args.BASE_VALUE)
+
+        spawns.append([robot_spawn[1], spawn_size])
+        spawns.append([spawn_baseA, spawn_size])
+        spawns.append([spawn_baseB, spawn_size])
+
+        path = shortest_path(bit_map, spawn_baseA, spawn_baseB)
 
         # for i in range(args.num_smap):
         #     piece = get_sample(bit_map, args.samp_size)
