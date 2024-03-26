@@ -1,9 +1,9 @@
-import sys
+'''import sys
 if len(sys.argv) == 1:
     print(f'{sys.argv[0]} needs an integer argument')
     print(f'Usage: python3 {sys.argv[0]} <num_map>')
     print(f'num_map is the map png, route npz, and spawns npy number that the script pulls from')
-    exit()
+    exit()'''
 
 import numpy as np
 from PIL import Image
@@ -12,8 +12,9 @@ class args:
     SIM_HEADLESS = False
     
     SEED = 69
-    DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
-    USE_MAP_N = sys.argv[1]
+    PROJECT_PATH = "/home/kevin/Desktop/flockingeaglesisaacsim"
+    DATA_DIR = PROJECT_PATH + "/data_generation/data/"
+    USE_MAP_N = 2
     MAP_SIZE = np.asarray(Image.open(DATA_DIR + f'map{USE_MAP_N}.png').convert('RGB'))
     
     GRAIN = 10
@@ -94,17 +95,17 @@ for i, spawn in enumerate(spawns[-2:]):
     )'''
 
 # Spawn robot
-add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot8IR_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
-#add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
+add_reference_to_stage(usd_path=args.PROJECT_PATH + "/flockingbot8IR_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
+#add_reference_to_stage(usd_path=args.PROJECT_PATH + "/flockingbot_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
 diff = DifferentialController(name="flockingbot_diff", wheel_radius=0.03, wheel_base=0.1125)
 robot = WheeledRobot(
     prim_path=args.FLOCKINGBOT_ASSET_DIR, 
-    usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot8IR_script.usd", 
-    #usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", 
+    usd_path=args.PROJECT_PATH + "/flockingbot8IR_script.usd", 
+    #usd_path=args.PROJECT_PATH + "/flockingbot_script.usd", 
     wheel_dof_names=["left_wheel_joint", "right_wheel_joint"], 
     wheel_dof_indices=[0,1], 
     create_robot=True,
-    position=np.array([spawns[-1][0][0] / args.GRAIN, spawns[-1][0][1] / args.GRAIN, 0.1]) #np.array([spawns[-3][0][0] / args.GRAIN, spawns[-3][0][1] / args.GRAIN, 0.1])		#np.array([0,0,0])
+    position=np.array([spawns[-3][0][0] / args.GRAIN, spawns[-3][0][1] / args.GRAIN, 0.1])		#np.array([0,0,0])
 )
 world.scene.add(robot)
 world.reset()
@@ -135,6 +136,7 @@ class FlockingBot:
         self.global_map_accessible = np.zeros((self.global_map.shape[0], self.global_map.shape[1]), dtype=np.uint8)
         self.global_map_accessible[gaussian_filter(self.global_map.astype('float32'), sigma=1.2) < 0.1] = self.ACCESSIBLE_VAL
         self.route_buffer = []
+        self.route_buffer_idx = 0
         self.ir_count = 8								# 3
         self.ir_configuration = list(np.linspace(-0.5 * np.pi, 1.25 * np.pi, num=8)) 	# np.linspace(-0.25 * np.pi, 0.25 * np.pi, num=3)
         self.ir_map_size = 5 * args.GRAIN
@@ -150,10 +152,10 @@ class FlockingBot:
         return eul_x
     def euclidian_distance(self, pos1, pos2):
         return sqrt((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2)
-    def dijkstra(map, start):
-        rows, cols = map.shape
-        visited = np.zeros(map.shape, dtype=bool)
-        distances = np.full(map.shape, np.inf)
+    def dijkstra(self, array2d, start):
+        rows, cols = array2d.shape
+        visited = np.zeros(array2d.shape, dtype=bool)
+        distances = np.full(array2d.shape, np.inf)
         distances[start[0], start[1]] = 0
         priority_queue = [(0, start)]
         while priority_queue:
@@ -163,15 +165,15 @@ class FlockingBot:
             visited[current_row, current_col] = True
             for dr, dc in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
                 new_row, new_col = current_row + dr, current_col + dc
-                if 0 <= new_row < rows and 0 <= new_col < cols and not visited[new_row, new_col] and bit_map_accessible[new_row, new_col] == self.ACCESSIBLE_VAL:
-                    if map[new_row, new_col] != self.OBSTACLE_VAL:
+                if 0 <= new_row < rows and 0 <= new_col < cols and not visited[new_row, new_col] and self.global_map_accessible[new_row, new_col] == self.ACCESSIBLE_VAL:
+                    if array2d[new_row, new_col] != self.OBSTACLE_VAL:
                         distance = current_distance + 1
                         if distance < distances[new_row, new_col]:
                             distances[new_row, new_col] = distance
                             heapq.heappush(priority_queue, (distance, (new_row, new_col)))
         return distances
-    def shortest_path(map, start_point, end_point):
-        distances = self.dijkstra(map, start_point)
+    def shortest_path(self, array2d, start_point, end_point):
+        distances = self.dijkstra(array2d, start_point)
         current_point = end_point
         shortest_path = [current_point]
         next_point = start_point
@@ -180,29 +182,34 @@ class FlockingBot:
             min_neighbor_distance = np.inf
             for dr, dc in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
                 neighbor_row, neighbor_col = current_point[0] + dr, current_point[1] + dc
-                if 0 <= neighbor_row < map.shape[0] and 0 <= neighbor_col < map.shape[1] and distances[neighbor_row, neighbor_col] < min_neighbor_distance:
+                if 0 <= neighbor_row < array2d.shape[0] and 0 <= neighbor_col < array2d.shape[1] and distances[neighbor_row, neighbor_col] < min_neighbor_distance:
                     min_neighbor_distance = distances[neighbor_row, neighbor_col]
                     next_point = (neighbor_row, neighbor_col)
             shortest_path.append(next_point)
             current_point = next_point
-        return shortest_path
+        return np.array(shortest_path)
     def update_state(self, new_state=None):
         # TODO: expand
         if new_state in self.STATES:
             self.state = new_state
             return
         elif self.state == 'IDLE':
-            if self.get_distance_to_destination(np.append(spawns[-1][0], [0.])) < 0.2:
+            if self.get_distance_to_destination(np.append(spawns[-1][0], [0.]) / args.GRAIN) < 0.2:
                 self.state = 'GO_A'
-            elif self.get_distance_to_destination(np.append(spawns[-2][0], [0.])) < 0.2:
+                self.route_buffer = np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path'] / args.GRAIN
+                self.route_buffer_idx = 0
+            elif self.get_distance_to_destination(np.append(spawns[-2][0], [0.]) / args.GRAIN) < 0.2:
                 self.state = 'GO_B'
+                self.route_buffer = np.flip(np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path'] / args.GRAIN, axis=0)
+                self.route_buffer_idx = 0
             else:
                 self.state = 'RELOCATING'
-                to_A = euclidian_distance(self.get_position(), spawns[-1][0])
-                to_B = euclidian_distance(self.get_position(), spawns[-2][0])
-                
-                #self.route_buffer = 
-        elif state == 'RELOCATING':
+                to_A = self.euclidian_distance(self.get_position(), np.array(spawns[-1][0]) / args.GRAIN)
+                to_B = self.euclidian_distance(self.get_position(), np.array(spawns[-2][0]) / args.GRAIN)
+                self.route_buffer = self.shortest_path(self.global_map, tuple([self.clamp(ceil(x * args.GRAIN), maxim=self.global_map.shape[0] - 1) for x in self.get_position()[:-1]]), spawns[-1][0] if to_A < to_B else spawns[-2][0]) / args.GRAIN
+                self.route_buffer = np.flip(self.route_buffer, axis=0)
+                self.route_buffer_idx = 0
+        elif self.state == 'RELOCATING':
             pass
                 
     def get_position(self): return self.robot.get_world_pose()[0]
@@ -236,7 +243,7 @@ class FlockingBot:
         heading = self.get_heading_angle_rad(pos) - np.pi
         self.forward(
             0.1 * speed_factor * (np.pi - abs(heading / np.pi)) / np.pi, 
-            -0.75 * speed_factor * heading
+            -0.75 * speed_factor * heading 
         )
         
 
@@ -255,16 +262,16 @@ plt.ion()
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
-        '''flockingbot.update_state()
-        
-        if flockingbot.state == 'RELOCATING':'''
-            
+        flockingbot.update_state()
         
         # Route travel protocol
-        flockingbot.go_to_position(route[route_idx], 0.5)
-        if flockingbot.get_distance_to_destination(route[route_idx]) < 0.2:
-            route_idx = min(len(route) - 1, route_idx + 1)
+        flockingbot.go_to_position(np.append(flockingbot.route_buffer[flockingbot.route_buffer_idx], [0.]), 1.0)
+        if flockingbot.get_distance_to_destination(np.append(flockingbot.route_buffer[flockingbot.route_buffer_idx], [0.])) < 0.2:
+            flockingbot.route_buffer_idx = min(len(flockingbot.route_buffer) - 1, flockingbot.route_buffer_idx + 1)
+            if flockingbot.route_buffer_idx == len(flockingbot.route_buffer) - 1:
+                flockingbot.update_state('IDLE')
             
+        '''
         # Mapping protocol
         flockingbot.map_ir_readings()
         if np.array_equal(ir_map, flockingbot.get_ir_map()) and frame_idx % 100 == 0:
@@ -273,13 +280,13 @@ while simulation_app.is_running():
             plt.draw()
             plt.pause(0.0001)
             plt.clf()
-        
+        '''
         world.step(render=True)
         frame_idx += 1
-    if frame_idx > 4000:
+    '''if frame_idx > 4000:
         np.savez(args.DATA_DIR + f'ir_map{args.USE_MAP_N}.npz', ir_map=ir_map)
         break
-    print(frame_idx)
+    print(frame_idx)'''
 
 simulation_app.close()
 

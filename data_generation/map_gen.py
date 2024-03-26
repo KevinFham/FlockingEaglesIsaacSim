@@ -56,10 +56,10 @@ def BitMap(shape, obstacle_size_range=(1, 3)):
 
     return bit_map, spawns
 
-def dijkstra(map, start):
-    rows, cols = map.shape
-    visited = np.zeros(map.shape, dtype=bool)
-    distances = np.full(map.shape, np.inf)
+def dijkstra(array2d, start):
+    rows, cols = array2d.shape
+    visited = np.zeros(array2d.shape, dtype=bool)
+    distances = np.full(array2d.shape, np.inf)
     distances[start[0], start[1]] = 0
     priority_queue = [(0, start)]
 
@@ -76,7 +76,7 @@ def dijkstra(map, start):
 
             if 0 <= new_row < rows and 0 <= new_col < cols and not visited[new_row, new_col] and bit_map_accessible[new_row, new_col] == args.ACCESSIBLE_VALUE:
                 # Check if the cell is not an obstacle
-                if map[new_row, new_col] != args.OBSTACLE_VALUE:
+                if array2d[new_row, new_col] != args.OBSTACLE_VALUE:
                     distance = current_distance + 1  # Assuming uniform weight for edges
                     if distance < distances[new_row, new_col]:
                         distances[new_row, new_col] = distance
@@ -111,8 +111,8 @@ def plot_grid(array, path=None):
     plt.show()
 
 
-def shortest_path(map, start_point, end_point):
-    distances = dijkstra(map, start_point)
+def shortest_path(array2d, start_point, end_point):
+    distances = dijkstra(array2d, start_point)
 
     # Find shortest path
     current_point = end_point
@@ -123,7 +123,7 @@ def shortest_path(map, start_point, end_point):
         min_neighbor_distance = np.inf
         for dr, dc in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
             neighbor_row, neighbor_col = current_point[0] + dr, current_point[1] + dc
-            if 0 <= neighbor_row < map.shape[0] and 0 <= neighbor_col < map.shape[1] and distances[neighbor_row, neighbor_col] < min_neighbor_distance:
+            if 0 <= neighbor_row < array2d.shape[0] and 0 <= neighbor_col < array2d.shape[1] and distances[neighbor_row, neighbor_col] < min_neighbor_distance:
                 min_neighbor_distance = distances[neighbor_row, neighbor_col]
                 next_point = (neighbor_row, neighbor_col)
         shortest_path.append(next_point)
