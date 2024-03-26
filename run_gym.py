@@ -1,3 +1,10 @@
+import sys
+if len(sys.argv) == 1:
+    print(f'{sys.argv[0]} needs an integer argument')
+    print(f'Usage: python3 {sys.argv[0]} <num_map>')
+    print(f'num_map is the map png, route npz, and spawns npy number that the script pulls from')
+    exit()
+
 import numpy as np
 from PIL import Image
 
@@ -6,7 +13,7 @@ class args:
     
     SEED = 69
     DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
-    USE_MAP_N = 2
+    USE_MAP_N = sys.argv[1]
     MAP_SIZE = np.asarray(Image.open(DATA_DIR + f'map{USE_MAP_N}.png').convert('RGB'))
     
     GRAIN = 10
@@ -97,7 +104,7 @@ robot = WheeledRobot(
     wheel_dof_names=["left_wheel_joint", "right_wheel_joint"], 
     wheel_dof_indices=[0,1], 
     create_robot=True,
-    position=np.array([spawns[-3][0][0] / args.GRAIN, spawns[-3][0][1] / args.GRAIN, 0.1])		#np.array([0,0,0])
+    position=np.array([spawns[-1][0][0] / args.GRAIN, spawns[-1][0][1] / args.GRAIN, 0.1]) #np.array([spawns[-3][0][0] / args.GRAIN, spawns[-3][0][1] / args.GRAIN, 0.1])		#np.array([0,0,0])
 )
 world.scene.add(robot)
 world.reset()
@@ -130,7 +137,7 @@ class FlockingBot:
         self.route_buffer = []
         self.ir_count = 8								# 3
         self.ir_configuration = list(np.linspace(-0.5 * np.pi, 1.25 * np.pi, num=8)) 	# np.linspace(-0.25 * np.pi, 0.25 * np.pi, num=3)
-        self.ir_map_size = 20 * args.GRAIN
+        self.ir_map_size = 5 * args.GRAIN
         self.ir_map = np.full((self.ir_map_size, self.ir_map_size), 0, dtype=np.uint8)
         self.ir_map_origin = [0., 0.]
         self.ir_max_range = 10.0
@@ -193,8 +200,8 @@ class FlockingBot:
                 self.state = 'RELOCATING'
                 to_A = euclidian_distance(self.get_position(), spawns[-1][0])
                 to_B = euclidian_distance(self.get_position(), spawns[-2][0])
-                self.route_buffer
                 
+                #self.route_buffer = 
         elif state == 'RELOCATING':
             pass
                 
@@ -248,16 +255,15 @@ plt.ion()
 frame_idx = 0
 while simulation_app.is_running():
     if world.is_playing():
-        flockingbot.update_state()
+        '''flockingbot.update_state()
         
-        if flockingbot.state == 'RELOCATING':
+        if flockingbot.state == 'RELOCATING':'''
             
-    
-        # Route travel protocol
         
-        '''flockingbot.go_to_position(route[route_idx], 0.5)
+        # Route travel protocol
+        flockingbot.go_to_position(route[route_idx], 0.5)
         if flockingbot.get_distance_to_destination(route[route_idx]) < 0.2:
-            route_idx = min(len(route) - 1, route_idx + 1)  
+            route_idx = min(len(route) - 1, route_idx + 1)
             
         # Mapping protocol
         flockingbot.map_ir_readings()
@@ -266,10 +272,14 @@ while simulation_app.is_running():
             plt.imshow(ir_map)
             plt.draw()
             plt.pause(0.0001)
-            plt.clf()'''
+            plt.clf()
         
         world.step(render=True)
         frame_idx += 1
+    if frame_idx > 4000:
+        np.savez(args.DATA_DIR + f'ir_map{args.USE_MAP_N}.npz', ir_map=ir_map)
+        break
+    print(frame_idx)
 
 simulation_app.close()
 
