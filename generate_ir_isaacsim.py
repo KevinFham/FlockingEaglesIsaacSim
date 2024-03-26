@@ -12,7 +12,8 @@ class args:
     SIM_HEADLESS = False
     
     SEED = 69
-    DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
+    PROJECT_PATH = "/home/kevin/Desktop/flockingeaglesisaacsim"
+    DATA_DIR = PROJECT_PATH + "/data_generation/data/"
     USE_MAP_N = sys.argv[1]
     MAP_SIZE = np.asarray(Image.open(DATA_DIR + f'map{USE_MAP_N}.png').convert('RGB'))
     
@@ -94,13 +95,13 @@ for i, spawn in enumerate(spawns[-2:]):
     )'''
 
 # Spawn robot
-add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot8IR_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
-#add_reference_to_stage(usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
+add_reference_to_stage(usd_path=args.PROJECT_PATH + "/flockingbot8IR_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
+#add_reference_to_stage(usd_path=args.PROJECT_PATH + "/flockingbot_script.usd", prim_path=args.FLOCKINGBOT_ASSET_DIR)
 diff = DifferentialController(name="flockingbot_diff", wheel_radius=0.03, wheel_base=0.1125)
 robot = WheeledRobot(
     prim_path=args.FLOCKINGBOT_ASSET_DIR, 
-    usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot8IR_script.usd", 
-    #usd_path="/home/kevin/Desktop/flockingeaglesisaacsim/flockingbot_script.usd", 
+    usd_path=args.PROJECT_PATH + "/flockingbot8IR_script.usd", 
+    #usd_path=args.PROJECT_PATH + "/flockingbot_script.usd", 
     wheel_dof_names=["left_wheel_joint", "right_wheel_joint"], 
     wheel_dof_indices=[0,1], 
     create_robot=True,
