@@ -1,26 +1,47 @@
-'''import sys
+import sys
 if len(sys.argv) == 1:
     print(f'{sys.argv[0]} needs an integer argument')
     print(f'Usage: python3 {sys.argv[0]} <num_map>')
     print(f'num_map is the map png, route npz, and spawns npy number that the script pulls from')
-    exit()'''
+    exit()
 
 import numpy as np
 from PIL import Image
+from time import time_ns
+import csv
 
 class args:
     SIM_HEADLESS = False
     
     SEED = 69
+    np.random.seed(SEED)
+    
     PROJECT_PATH = "/home/kevin/Desktop/flockingeaglesisaacsim"
     DATA_DIR = PROJECT_PATH + "/data_generation/data/"
-    USE_MAP_N = 2
+    USE_MAP_N = sys.argv[1]
     MAP_SIZE = np.asarray(Image.open(DATA_DIR + f'map{USE_MAP_N}.png').convert('RGB'))
     
     GRAIN = 10
     BOT_POPULATION = 1
     BOT_SPAWN_RANGE = 5.0
     FLOCKINGBOT_ASSET_DIR = "/World/flockingbot"
+    
+class record:
+    time_buffer = None
+    time_record_file = open(args.PROJECT_PATH + f'/data_generation/time_record{args.USE_MAP_N}.csv', 'w', newline='')
+    time_record_writer = csv.writer(time_record_file)
+    time_record_writer.writerow(['State', 'Time (ms)'])
+    time_record = []
+    
+    def start_time(state):
+        print("Time Start")
+        record.time_record = [state]
+        record.time_buffer = time_ns() / 1000000
+    def record_time():
+        time_ms = time_ns() / 1000000
+        print(f'{record.time_record}:', time_ms - record.time_buffer)	
+        record.time_record_writer.writerow(record.time_record + [str(time_ms - record.time_buffer)])
+        record.time_buffer = None	
 
 from omni.isaac.kit import SimulationApp
 simulation_app = SimulationApp({"headless": args.SIM_HEADLESS})
@@ -62,6 +83,11 @@ for i, spawn in enumerate(spawns[:-3]):
     FixedCuboid(
         prim_path=f'/World/terrain/object_{i}', 
         size=(spawn[1] * 2 + 1) / args.GRAIN, 
+        color=np.array([
+            0.9176 + np.random.uniform(-0.04, 0.012), 
+            0.4331 + np.random.uniform(-0.02, 0.02), 
+            0.0902 + np.random.uniform(-0.01, 0.01)
+        ]),
         position=np.array([
             spawn[0][0] / args.GRAIN, 
             spawn[0][1] / args.GRAIN, 
@@ -73,7 +99,7 @@ for i, spawn in enumerate(spawns[:-3]):
 for i, spawn in enumerate(spawns[-2:]):
     VisualCuboid(
         prim_path=f'/World/terrain/base_{i}', 
-        color=np.array([0, 100, 0]),
+        color=np.array([0., 1., 0.]),
         size=(spawn[1] * 2 + 1) / args.GRAIN, 
         position=np.array([
             spawn[0][0] / args.GRAIN, 
@@ -194,23 +220,26 @@ class FlockingBot:
             self.state = new_state
             return
         elif self.state == 'IDLE':
-            if self.get_distance_to_destination(np.append(spawns[-1][0], [0.]) / args.GRAIN) < 0.2:
+            if record.time_buffer:
+                record.record_time()
+            if self.get_distance_to_destination(np.append(spawns[-1][0], [0.]) / args.GRAIN) < 0.3:
                 self.state = 'GO_A'
+                record.start_time(self.state)
                 self.route_buffer = np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path'] / args.GRAIN
                 self.route_buffer_idx = 0
-            elif self.get_distance_to_destination(np.append(spawns[-2][0], [0.]) / args.GRAIN) < 0.2:
+            elif self.get_distance_to_destination(np.append(spawns[-2][0], [0.]) / args.GRAIN) < 0.3:
                 self.state = 'GO_B'
+                record.start_time(self.state)
                 self.route_buffer = np.flip(np.load(args.DATA_DIR + f'route{args.USE_MAP_N}.npz')['path'] / args.GRAIN, axis=0)
                 self.route_buffer_idx = 0
             else:
                 self.state = 'RELOCATING'
+                record.start_time(self.state)
                 to_A = self.euclidian_distance(self.get_position(), np.array(spawns[-1][0]) / args.GRAIN)
                 to_B = self.euclidian_distance(self.get_position(), np.array(spawns[-2][0]) / args.GRAIN)
                 self.route_buffer = self.shortest_path(self.global_map, tuple([self.clamp(ceil(x * args.GRAIN), maxim=self.global_map.shape[0] - 1) for x in self.get_position()[:-1]]), spawns[-1][0] if to_A < to_B else spawns[-2][0]) / args.GRAIN
                 self.route_buffer = np.flip(self.route_buffer, axis=0)
                 self.route_buffer_idx = 0
-        elif self.state == 'RELOCATING':
-            pass
                 
     def get_position(self): return self.robot.get_world_pose()[0]
     def get_orientation_quat(self): return self.imu.get_current_frame()['orientation']
@@ -243,7 +272,7 @@ class FlockingBot:
         heading = self.get_heading_angle_rad(pos) - np.pi
         self.forward(
             0.1 * speed_factor * (np.pi - abs(heading / np.pi)) / np.pi, 
-            -0.75 * speed_factor * heading 
+            -1.0 * speed_factor * heading 
         )
         
 
@@ -265,7 +294,7 @@ while simulation_app.is_running():
         flockingbot.update_state()
         
         # Route travel protocol
-        flockingbot.go_to_position(np.append(flockingbot.route_buffer[flockingbot.route_buffer_idx], [0.]), 1.0)
+        flockingbot.go_to_position(np.append(flockingbot.route_buffer[flockingbot.route_buffer_idx], [0.]), 0.8)
         if flockingbot.get_distance_to_destination(np.append(flockingbot.route_buffer[flockingbot.route_buffer_idx], [0.])) < 0.2:
             flockingbot.route_buffer_idx = min(len(flockingbot.route_buffer) - 1, flockingbot.route_buffer_idx + 1)
             if flockingbot.route_buffer_idx == len(flockingbot.route_buffer) - 1:
@@ -289,6 +318,6 @@ while simulation_app.is_running():
     print(frame_idx)'''
 
 simulation_app.close()
-
+record.time_record_file.close()
 
 

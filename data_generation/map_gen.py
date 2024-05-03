@@ -8,9 +8,9 @@ import heapq
 
 class args:
     SEED = 69
-    DATA_GEN_SIZE = 20                      # num_maps
+    DATA_GEN_SIZE = 4                      # num_maps
     DATA_DIR = "/home/kevin/Desktop/flockingeaglesisaacsim/data_generation/data/"
-    DEBUG_PYPLOT = False
+    DEBUG_PYPLOT = True
 
 
     TERRAIN_SIZE = 10.0
@@ -166,6 +166,8 @@ def get_sample(full_arr, smapsize):    # Generate random indices to extract a 20
 
 """ Main
 """
+
+
 if __name__ == "__main__":
     for gen in range(args.DATA_GEN_SIZE):
         bit_map, spawns = BitMap(
@@ -261,3 +263,19 @@ if __name__ == "__main__":
             mpimg.imsave(args.DATA_DIR + f'map{gen}.png', bit_map)
             np.save(args.DATA_DIR + f'spawns{gen}', np.array(spawns, dtype=object))
             np.savez(args.DATA_DIR + f'route{gen}.npz', bit_map=bit_map, path=path)
+
+
+#gen = 9
+# Using Map #8
+#a = [(68, 10), (43, 91), (25, 54), (19, 33)]
+#spawn_square(bit_map, a[2], spawn_size, args.ROBOT_SPAWN_VALUE)
+#spawn_square(bit_map, a[3], spawn_size, args.ROBOT_SPAWN_VALUE)
+#new = gaussian_filter(bit_map.astype('float32'), sigma=2)
+# for loc in a[2:]:
+#     for i in range(-13, 14):
+#         for j in range(-13, 14):
+#             new[clamp(loc[0] + i, maxim=99), clamp(loc[1] + j, maxim=99)] = bit_map[clamp(loc[0] + i, maxim=99), clamp(loc[1] + j, maxim=99)]
+# for loc in a[:2]:
+#     for i in range(-1, 2):
+#         for j in range(-1, 2):
+#             new[clamp(loc[0] + i, maxim=99), clamp(loc[1] + j, maxim=99)] = bit_map[clamp(loc[0] + i, maxim=99), clamp(loc[1] + j, maxim=99)]
