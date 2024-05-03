@@ -2,14 +2,14 @@
 
 ## Isaac Sim Documentation
 
-### Omniverse Tutorials:
+### Isaac Sim Tutorials:
 
 - https://docs.omniverse.nvidia.com/isaacsim/latest/index.html
 
 - https://docs.omniverse.nvidia.com/isaacsim/latest/isaac_gym_tutorials/tutorial_gym_isaac_gym.html
 
 
-### Omniverse Python API
+### Isaac Sim Python API
 
 - https://docs.omniverse.nvidia.com/py/isaacsim/index.html
 
@@ -23,7 +23,7 @@
 
 ## Tips
 
-### Omniverse Python tools
+### Isaac Sim Python tools
 
 - Connect to the python console of a running simulation via port connection (default is `8223`)
 
