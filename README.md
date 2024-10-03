@@ -10,7 +10,6 @@
 
     - Reinforcement Learning Examples: https://github.com/isaac-sim/IsaacGymEnvs/blob/main/docs/rl_examples.md  
 
-
 ### Isaac Sim Python API
 
 - https://docs.omniverse.nvidia.com/py/isaacsim/index.html
@@ -19,7 +18,7 @@
 
     - `~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh`
 
-- Optionally with a predone `<script.py>` file
+- Optionally, run interpreter with a predone `<script.py>` file
 
     - `~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh <script.py>`
 
