@@ -8,6 +8,8 @@
 
 - Isaac Gym: https://github.com/isaac-sim/IsaacGymEnvs.git
 
+    - Similar repo I used, slightly outdated: https://github.com/isaac-sim/OmniIsaacGymEnvs
+
     - Reinforcement Learning Examples: https://github.com/isaac-sim/IsaacGymEnvs/blob/main/docs/rl_examples.md  
 
 ### Isaac Sim Python API
