@@ -6,7 +6,9 @@
 
 - https://docs.omniverse.nvidia.com/isaacsim/latest/index.html
 
-- https://docs.omniverse.nvidia.com/isaacsim/latest/isaac_gym_tutorials/tutorial_gym_isaac_gym.html
+- Isaac Gym: https://github.com/isaac-sim/IsaacGymEnvs.git
+
+    - Reinforcement Learning Examples: https://github.com/isaac-sim/IsaacGymEnvs/blob/main/docs/rl_examples.md  
 
 
 ### Isaac Sim Python API
