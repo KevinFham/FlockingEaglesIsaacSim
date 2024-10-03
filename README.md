@@ -6,7 +6,7 @@
 
 - https://docs.omniverse.nvidia.com/isaacsim/latest/index.html
 
-- Isaac Gym: https://github.com/isaac-sim/IsaacGymEnvs.git
+- Isaac Gym: https://github.com/isaac-sim/IsaacGymEnvs
 
     - Similar repo I used, slightly outdated: https://github.com/isaac-sim/OmniIsaacGymEnvs
 
